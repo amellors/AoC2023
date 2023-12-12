@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -23,6 +24,10 @@ type map_entry struct {
 
 func (me map_entry) in_map(src int64) bool {
 	return (src >= me.src && src < (me.src+me.count))
+}
+
+func (me map_entry) in_dst_map(dst int64) bool {
+	return (dst >= me.dest && dst < (me.dest+me.count))
 }
 
 type MatchType int64
@@ -60,6 +65,15 @@ func (me map_entry) convert(src int64) int64 {
 	return me.dest + delta
 }
 
+func (me map_entry) reversConvert(dest int64) int64 {
+	if !me.in_dst_map(dest) {
+		return -1
+	}
+
+	delta := dest - me.dest
+	return me.src + delta
+}
+
 func (me map_entry) convertRange(start int64, count int64) (int64, int64) {
 	delta := start - me.src
 	var leftover int64
@@ -81,6 +95,16 @@ func (p ProcessMap) convert(src int64) int64 {
 	}
 
 	return src
+}
+
+func (p ProcessMap) reverseConvert(dest int64) int64 {
+	for _, entry := range p.entries {
+		if entry.in_dst_map(dest) {
+			return entry.reversConvert(dest)
+		}
+	}
+
+	return dest
 }
 
 func (p ProcessMap) convertRange(start int64, count int64) map[int64]int64 {
@@ -128,6 +152,16 @@ func (p ProcessMap) convertRange(start int64, count int64) map[int64]int64 {
 	return convertedRanges
 }
 
+func (p ProcessMap) isMapped(value int64) bool {
+	for _, entry := range p.entries {
+		if entry.in_map(value) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (p ProcessMap) addMapEntry(src int64, dest int64, count int64) {
 	new_entry := map_entry{src: src, dest: dest, count: count}
 	p.entries = append(p.entries, new_entry)
@@ -152,6 +186,11 @@ func loadSeeds(line string) map[int64]int64 {
 
 func chainConvert(seed int64) int64 {
 	return HumiToLoc.convert(tempToHumi.convert(lightToTemp.convert(waterToLight.convert(fertToWater.convert(soilToFert.convert(seedToSoil.convert(seed)))))))
+}
+
+func reverseChainConvert(loc int64) int64 {
+	return seedToSoil.reverseConvert(soilToFert.reverseConvert(fertToWater.reverseConvert(waterToLight.reverseConvert(lightToTemp.reverseConvert(tempToHumi.reverseConvert(HumiToLoc.reverseConvert(loc)))))))
+	// return HumiToLoc.convert(tempToHumi.convert(lightToTemp.convert(waterToLight.convert(fertToWater.convert(soilToFert.convert(seedToSoil.convert(seed)))))))
 }
 
 func chainConvertRange(seeds map[int64]int64) map[int64]int64 {
@@ -210,11 +249,22 @@ func chainConvertRange(seeds map[int64]int64) map[int64]int64 {
 
 func processesSeeds(seedList map[int64]int64) int64 {
 
-	lowestLoc := float64(9223372036854775807)
-	chainConvertRange(seedList)
+	seedMap := ProcessMap{}
+	for k, v := range seedList {
+		seedMap.entries = append(seedMap.entries, map_entry{src: k, dest: 0, count: v})
+	}
+
+	for i := int64(1); i < math.MaxInt64; i += 1 {
+		seedVal := reverseChainConvert(i)
+		if seedMap.isMapped(seedVal) {
+			return i
+		}
+	}
+
+	// chainConvertRange(seedList)
 	// 	locList = append(locList, chainConvert(seed))
 
-	return int64(lowestLoc)
+	return 0
 }
 
 var seedToSoil ProcessMap
@@ -269,8 +319,8 @@ func processMapData(lines []string) {
 }
 
 func main() {
-	// file, err := os.Open("input_data")
-	file, err := os.Open("examp_input")
+	file, err := os.Open("input_data")
+	// file, err := os.Open("examp_input")
 	check(err)
 	defer file.Close()
 
@@ -298,7 +348,7 @@ func main() {
 
 	processMapData(mappingData)
 
-	lowest := processesSeeds(seeds)
+	seedVal := processesSeeds(seeds)
 
-	fmt.Println("Lowest location: " + strconv.FormatInt(lowest, 10))
+	fmt.Println("Found seed: ", seedVal)
 }
