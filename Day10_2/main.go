@@ -24,7 +24,7 @@ func (ml mapLoc) leftOrZero() int {
 }
 
 func (ml mapLoc) rightOrMax() int {
-	return int(math.Min(float64(ml.x+1), float64(map_length)))
+	return int(math.Min(float64(ml.x+1), float64(map_length*3)))
 }
 
 func (ml mapLoc) upOrZero() int {
@@ -32,7 +32,11 @@ func (ml mapLoc) upOrZero() int {
 }
 
 func (ml mapLoc) downOrMax() int {
-	return int(math.Min(float64(ml.y+1), float64(map_height)))
+	return int(math.Min(float64(ml.y+1), float64(map_height*3)))
+}
+
+func convertPoint(x, y int) (int, int) {
+	return (x * 3) + 1, (y * 3) + 1
 }
 
 type mapDirection int
@@ -45,88 +49,101 @@ const (
 )
 
 var pipe_map []string
+var big_pipe_map [][]byte
 var map_length int
 var map_height int
 
 func fillPipe(startPoint, curStep mapLoc, dir mapDirection) {
 	if startPoint.x == curStep.x && startPoint.y == curStep.y {
-		line := pipe_map[curStep.y]
-		pipe_map[curStep.y] = line[:curStep.x] + string('#') + line[curStep.x+1:]
+		big_pipe_map[curStep.y][curStep.x] = '#'
 		return
 	}
 
-	step_char := pipe_map[curStep.y][curStep.x]
-	if dir == LEFT {
-		if step_char == '-' {
-			fillPipe(startPoint, mapLoc{x: curStep.leftOrZero(), y: curStep.y}, LEFT)
-		} else if step_char == 'L' {
-			fillPipe(startPoint, mapLoc{x: curStep.x, y: curStep.upOrZero()}, UP)
-		} else if step_char == 'F' {
-			fillPipe(startPoint, mapLoc{x: curStep.x, y: curStep.downOrMax()}, DOWN)
-		} else {
-			panic("Shouldn't be here by stepping left")
+	for true {
+		step_char := big_pipe_map[curStep.y][curStep.x]
+		big_pipe_map[curStep.y][curStep.x] = '#'
+		if startPoint.x == curStep.x && startPoint.y == curStep.y {
+			break
 		}
-	} else if dir == RIGHT {
-		if step_char == '-' {
-			fillPipe(startPoint, mapLoc{x: curStep.rightOrMax(), y: curStep.y}, RIGHT)
-		} else if step_char == 'J' {
-			fillPipe(startPoint, mapLoc{x: curStep.x, y: curStep.upOrZero()}, UP)
-		} else if step_char == '7' {
-			fillPipe(startPoint, mapLoc{x: curStep.x, y: curStep.downOrMax()}, DOWN)
-		} else {
-			panic("Shouldn't be here by stepping right")
-		}
-	} else if dir == UP {
-		if step_char == '|' {
-			fillPipe(startPoint, mapLoc{x: curStep.x, y: curStep.upOrZero()}, UP)
-		} else if step_char == 'F' {
-			fillPipe(startPoint, mapLoc{x: curStep.rightOrMax(), y: curStep.y}, RIGHT)
-		} else if step_char == '7' {
-			fillPipe(startPoint, mapLoc{x: curStep.leftOrZero(), y: curStep.y}, LEFT)
-		} else {
-			panic("Shouldn't be here by stepping up")
-		}
-	} else if dir == DOWN {
-		if step_char == '|' {
-			fillPipe(startPoint, mapLoc{x: curStep.x, y: curStep.downOrMax()}, DOWN)
-		} else if step_char == 'L' {
-			fillPipe(startPoint, mapLoc{x: curStep.rightOrMax(), y: curStep.y}, RIGHT)
-		} else if step_char == 'J' {
-			fillPipe(startPoint, mapLoc{x: curStep.leftOrZero(), y: curStep.y}, LEFT)
-		} else {
-			panic("Shouldn't be here by stepping down")
+
+		if dir == LEFT {
+			if step_char == '-' {
+				curStep = mapLoc{x: curStep.leftOrZero(), y: curStep.y}
+				dir = LEFT
+			} else if step_char == 'L' {
+				curStep = mapLoc{x: curStep.x, y: curStep.upOrZero()}
+				dir = UP
+			} else if step_char == 'F' {
+				curStep = mapLoc{x: curStep.x, y: curStep.downOrMax()}
+				dir = DOWN
+			} else {
+				panic("Shouldn't be here by stepping left")
+			}
+		} else if dir == RIGHT {
+			if step_char == '-' {
+				curStep = mapLoc{x: curStep.rightOrMax(), y: curStep.y}
+				dir = RIGHT
+			} else if step_char == 'J' {
+				curStep = mapLoc{x: curStep.x, y: curStep.upOrZero()}
+				dir = UP
+			} else if step_char == '7' {
+				curStep = mapLoc{x: curStep.x, y: curStep.downOrMax()}
+				dir = DOWN
+			} else {
+				panic("Shouldn't be here by stepping right")
+			}
+		} else if dir == UP {
+			if step_char == '|' {
+				curStep = mapLoc{x: curStep.x, y: curStep.upOrZero()}
+				dir = UP
+			} else if step_char == 'F' {
+				curStep = mapLoc{x: curStep.rightOrMax(), y: curStep.y}
+				dir = RIGHT
+			} else if step_char == '7' {
+				curStep = mapLoc{x: curStep.leftOrZero(), y: curStep.y}
+				dir = LEFT
+			} else {
+				panic("Shouldn't be here by stepping up")
+			}
+		} else if dir == DOWN {
+			if step_char == '|' {
+				curStep = mapLoc{x: curStep.x, y: curStep.downOrMax()}
+				dir = DOWN
+			} else if step_char == 'L' {
+				curStep = mapLoc{x: curStep.rightOrMax(), y: curStep.y}
+				dir = RIGHT
+			} else if step_char == 'J' {
+				curStep = mapLoc{x: curStep.leftOrZero(), y: curStep.y}
+				dir = LEFT
+			} else {
+				panic("Shouldn't be here by stepping down")
+			}
 		}
 	}
-
-	line := pipe_map[curStep.y]
-	pipe_map[curStep.y] = line[:curStep.x] + string('#') + line[curStep.x+1:]
 }
 
 func fillGround() {
-	for i, line := range pipe_map {
-		line = strings.ReplaceAll(line, "F", ".")
-		line = strings.ReplaceAll(line, "7", ".")
-		line = strings.ReplaceAll(line, "|", ".")
-		line = strings.ReplaceAll(line, "-", ".")
-		line = strings.ReplaceAll(line, "L", ".")
-		line = strings.ReplaceAll(line, "J", ".")
-		pipe_map[i] = line
+	for i := range big_pipe_map {
+		for j := range big_pipe_map[i] {
+			if big_pipe_map[i][j] != '#' {
+				big_pipe_map[i][j] = '.'
+			}
+		}
 	}
 }
 
 func floodFill(row, col int, oldC, newC byte) {
 
 	// Base Cases
-	if row < 0 || col < 0 || row >= map_length || col >= map_height {
+	if row < 0 || col < 0 || row >= (map_height*3) || col >= (map_length*3) {
 		return
 	}
 
-	if pipe_map[row][col] != oldC {
+	if big_pipe_map[row][col] != oldC {
 		return
 	}
 
-	line := pipe_map[row]
-	pipe_map[row] = line[:col] + string(newC) + line[col+1:]
+	big_pipe_map[row][col] = newC
 
 	// recursion
 	floodFill(row+1, col-1, oldC, newC)
@@ -141,9 +158,10 @@ func floodFill(row, col int, oldC, newC byte) {
 
 func countEnclosed() int {
 	count := 0
-	for _, line := range pipe_map {
-		for _, char := range line {
-			if char == '.' {
+	for y := range pipe_map {
+		for x := range pipe_map[y] {
+			new_x, new_y := convertPoint(x, y)
+			if big_pipe_map[new_y][new_x] == '.' {
 				count += 1
 			}
 		}
@@ -157,19 +175,72 @@ func printAnswer(steps int) {
 }
 
 func printMap() {
-	for _, line := range pipe_map {
+	for _, line := range big_pipe_map {
 		fmt.Println(line)
+	}
+}
+
+func convertMap() {
+	convert_map := map[byte][]string{
+		'.': {"...",
+			"...",
+			"..."},
+		'|': {".|.",
+			".|.",
+			".|."},
+		'-': {"...",
+			"---",
+			"..."},
+		'7': {"...",
+			"-7.",
+			".|."},
+		'F': {"...",
+			".F-",
+			".|."},
+		'J': {".|.",
+			"-J.",
+			"..."},
+		'L': {".|.",
+			".L-",
+			"..."},
+		'S': {"...",
+			"---",
+			"..."}}
+
+	big_height := len(pipe_map) * 3
+	big_length := len(pipe_map[0]) * 3
+
+	big_pipe_map = make([][]byte, big_height)
+	for i := range big_pipe_map {
+		big_pipe_map[i] = make([]byte, big_length)
+	}
+
+	for y := range pipe_map {
+		for x := range pipe_map[y] {
+			new_x, new_y := convertPoint(x, y)
+			populateBigMap(new_x, new_y, convert_map[pipe_map[y][x]])
+		}
+	}
+}
+
+func populateBigMap(x, y int, copy_data []string) {
+	start_x := x - 1
+	start_y := y - 1
+	for j := 0; j <= 2; j += 1 {
+		for i := 0; i <= 2; i += 1 {
+			big_pipe_map[start_y+j][start_x+i] = copy_data[j][i]
+		}
 	}
 }
 
 func main() {
 	file, err := os.Open("input_data")
-	// file, err := os.Open("examp_input")
+	// file, err := os.Open("examp_input_2")
 	check(err)
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 
-	pipe_map = []string{}
+	// pipe_map = []string{}
 
 	cur_y := 0
 	start_point := mapLoc{}
@@ -190,23 +261,28 @@ func main() {
 	map_height = len(pipe_map)
 	map_length = len(pipe_map[0])
 
+	convertMap()
+
 	// fmt.Println("Start Point = (", start_point.x, ", ", start_point.y, ")")
 	test_char1 := pipe_map[start_point.y][start_point.leftOrZero()]
 	test_char2 := pipe_map[start_point.y][start_point.rightOrMax()]
 	test_char3 := pipe_map[start_point.upOrZero()][start_point.x]
 	test_char4 := pipe_map[start_point.downOrMax()][start_point.x]
+
+	big_start_x, big_start_y := convertPoint(start_point.x, start_point.y)
+	big_start := mapLoc{x: big_start_x, y: big_start_y}
 	if test_char1 == '-' || test_char1 == 'L' || test_char1 == 'F' {
-		fillPipe(start_point, mapLoc{x: start_point.leftOrZero(), y: start_point.y}, LEFT)
+		fillPipe(big_start, mapLoc{x: big_start.leftOrZero(), y: big_start.y}, LEFT)
 	} else if test_char2 == '-' || test_char2 == 'J' || test_char2 == '7' {
-		fillPipe(start_point, mapLoc{x: start_point.rightOrMax(), y: start_point.y}, RIGHT)
+		fillPipe(big_start, mapLoc{x: big_start.rightOrMax(), y: big_start.y}, RIGHT)
 	} else if test_char3 == '|' || test_char3 == '7' || test_char3 == 'F' {
-		fillPipe(start_point, mapLoc{x: start_point.x, y: start_point.upOrZero()}, UP)
+		fillPipe(big_start, mapLoc{x: big_start.x, y: big_start.upOrZero()}, UP)
 	} else if test_char4 == '|' || test_char4 == 'J' || test_char4 == 'L' {
-		fillPipe(start_point, mapLoc{x: start_point.x, y: start_point.downOrMax()}, DOWN)
+		fillPipe(big_start, mapLoc{x: big_start.x, y: big_start.downOrMax()}, DOWN)
 	}
 
 	fillGround()
 	floodFill(0, 0, '.', '*')
-	printMap()
+	// printMap()
 	fmt.Println("Enclosed spaces: ", countEnclosed())
 }
