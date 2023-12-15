@@ -68,7 +68,6 @@ func main() {
 	sum := 0
 	for i := range cur_map[0] {
 		colWeight := countRockWeight(cur_map, i)
-		fmt.Println("Col(", i, ") weight =", colWeight)
 		sum += colWeight
 	}
 	fmt.Println("Total Rock Weight: ", sum)
